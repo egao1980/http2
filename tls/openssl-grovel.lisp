@@ -1,7 +1,58 @@
 (in-package #:http2/openssl)
 
-(cc-flags "-I/opt/homebrew/opt/openssl@3/include")
-(cc-flags "-L/opt/homebrew/opt/openssl@3/lib")
+;;; Portable include/lib flags. Upstream hardcoded Homebrew @3, which breaks
+;;; Linux/Windows grovel and any Darwin install that is not that prefix.
+#.(flet ((split-flags (s)
+           (remove "" (uiop:split-string s :separator " ") :test #'string=))
+         (include-if (dir)
+           (let* ((root (uiop:ensure-directory-pathname dir))
+                  (hdr (merge-pathnames "openssl/ssl.h" root)))
+             (when (probe-file hdr)
+               (format nil "-I~a" (namestring root))))))
+    (let* ((env-c (uiop:getenv "OPENSSL_CFLAGS"))
+           (env-l (uiop:getenv "OPENSSL_LIBS"))
+           (pkg-c (ignore-errors
+                    (string-trim '(#\Space #\Newline #\Tab)
+                                 (uiop:run-program '("pkg-config" "--cflags" "openssl")
+                                                   :output :string
+                                                   :ignore-error-status t))))
+           (pkg-l (ignore-errors
+                    (string-trim '(#\Space #\Newline #\Tab)
+                                 (uiop:run-program '("pkg-config" "--libs" "openssl")
+                                                   :output :string
+                                                   :ignore-error-status t))))
+           (probed (remove nil
+                           (mapcar #'include-if
+                                   '("/opt/homebrew/opt/openssl@3/include"
+                                     "/opt/homebrew/opt/openssl/include"
+                                     "/usr/local/opt/openssl@3/include"
+                                     "/usr/local/opt/openssl/include"
+                                     "/opt/local/include"
+                                     "/usr/local/include"
+                                     "/usr/include"))))
+           (lib-dirs (remove nil
+                             (mapcar (lambda (dir)
+                                       (when (probe-file dir)
+                                         (format nil "-L~a" dir)))
+                                     '("/opt/homebrew/opt/openssl@3/lib"
+                                       "/opt/homebrew/opt/openssl/lib"
+                                       "/usr/local/opt/openssl@3/lib"
+                                       "/usr/local/opt/openssl/lib"
+                                       "/opt/local/lib"
+                                       "/usr/local/lib"))))
+           (cflags (append (when (and env-c (plusp (length env-c))) (split-flags env-c))
+                           (when (and pkg-c (plusp (length pkg-c))
+                                      (not (search "not found" pkg-c)))
+                             (split-flags pkg-c))
+                           probed))
+           (lflags (append (when (and env-l (plusp (length env-l))) (split-flags env-l))
+                           (when (and pkg-l (plusp (length pkg-l))
+                                      (not (search "not found" pkg-l)))
+                             (split-flags pkg-l))
+                           lib-dirs)))
+      `(progn
+         ,@(when cflags `((cc-flags ,@cflags)))
+         ,@(when lflags `((cc-flags ,@lflags))))))
 
 (include "openssl/ssl.h")
 (constant (ssl-error-none "SSL_ERROR_NONE"))

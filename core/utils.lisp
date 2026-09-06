@@ -287,6 +287,10 @@ This is intended primarily for SBCL. It would use basic tracing on other platfor
   (certificate-file slot)
   (private-key-file slot))
 
+(defclass h2-server-context-mixin ()
+  ()
+  (:documentation "This mixin ensures that the server will provide H2 ALPN during TLS negotiation."))
+
 (defclass certificated-context-mixin ()
   ((certificate-file :initarg  :certificate-file)
    (private-key-file :initarg  :private-key-file))

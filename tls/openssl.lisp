@@ -228,7 +228,8 @@ wrapped in WITH-SSL-CONTEXT."
 (defcfun "SSL_CTX_use_certificate_file" :int (ctx :pointer) (path :string) (type :int))
 (defcfun ("SSL_CTX_set_alpn_select_cb" ssl-ctx-set-alpn-select-cb) :void
   (ctx :pointer)
-  (alpn-select-cb :pointer))
+  (alpn-select-cb :pointer)
+  (arg :pointer))
 (defcfun "SSL_CTX_set_cipher_list" :int (ctx :pointer) (str :string))
 (defcfun "SSL_CTX_set_ciphersuites" :int (ctx :pointer) (str :string))
 
@@ -284,10 +285,6 @@ wrapped in WITH-SSL-CONTEXT."
            ;; h2 not found, alert
            (return ssl-tlsext-err-alert-fatal))) ; no agreement
 
-(defclass h2-server-context-mixin ()
-  ()
-  (:documentation "This mixin ensures that the server will provide H2 alpn during TLS negotiation."))
-
 (defconstant +ssl-filetype-pem+ 1)
 (defconstant +ssl-filetype-asn1+ 2)
 (defconstant +ssl-filetype-default+ 3)
@@ -323,7 +320,8 @@ We should also limit allowed ciphers, but we do not.")
   (:method ((dispatcher h2-server-context-mixin))
     "For servers"
     (let ((context (call-next-method)))
-      (ssl-ctx-set-alpn-select-cb  context (get-callback 'select-h2-callback))
+      (ssl-ctx-set-alpn-select-cb context (cffi:callback select-h2-callback)
+                                 (null-pointer))
       context))
 
   (:method ((dispatcher certificated-context-mixin))
