@@ -59,8 +59,8 @@
   :license  "MIT"
   :serial t
   :pathname "server"
-  ;; FIXME: is /tls really needed?
-  :depends-on ("puri" #+nil "http2/tls" "http2/core" "http2/stream-based" "http2/openssl")
+  ;; Threaded TLS is cl+ssl; do not pull http2/openssl (Homebrew grovel + poll.h).
+  :depends-on ("puri" "usocket" "http2/core" "http2/stream-based")
   :components ((:file "socket-dispatcher")
                (:file "logging")
                (:file "dispatch")
@@ -72,14 +72,14 @@
   :license  "MIT"
   :serial t
   :pathname "server"
-  :depends-on ("puri" "http2/server/shared")
+  :depends-on ("puri" "cffi" "http2/server/shared")
   :components ((:file "../tls/server")
                (:file "threaded")))
 
 
 (defsystem "http2"
-  :version "2.1"
-  :depends-on ("http2/client" "http2/server" "http2/server/poll")
+  :version "2.1.1"
+  :depends-on ("http2/client" "http2/server")
   :components ((:file "overview"))
   :description "HTTP/2 library, including a sample client and server.
 
@@ -95,7 +95,7 @@ Run these patterns against servers."
   ((:file "client/payload-tests")))
 
 (defsystem "http2/test"
-  :depends-on ("http2" "fiasco")
+  :depends-on ("http2" "http2/server/poll" "fiasco")
   :pathname "tests"
   :perform (test-op (o s)
                     (symbol-call :fiasco '#:run-package-tests :package '#:http2/tests))
@@ -144,7 +144,7 @@ Run these patterns against servers."
 - both for running the server and for defining content."
   :author "Tomáš Zellerin <tomas@zellerin.cz>"
   :serial t
-  :depends-on ("http2/server/threaded" "http2/server/poll")
+  :depends-on ("http2/server/threaded")
   :pathname "server")
 
 (asdf:defsystem "http2/server/demo"

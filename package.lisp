@@ -73,6 +73,7 @@
 (in-package #:http2/utils)
 (defsection @error-root ()
   (communication-error condition)
+  (get-medium generic-function)
   (medium unspecified))
 
 (define-condition communication-error (serious-condition)
