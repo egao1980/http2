@@ -49,6 +49,8 @@
   :serial t
   :pathname "client"
   :depends-on ("cl+ssl" "puri" "http2/stream-based")
+  ;; QL mgl-pax dummy is findable; :with + scripts/ci/pre-install pin OCI macros.
+  :properties (:cl-repo (:ci (:with ("mgl-pax" "dref" "autoload"))))
   :components ((:file "client-utils")
                (:file "client")
                (:file "tutorials")))
@@ -73,6 +75,7 @@
   :serial t
   :pathname "server"
   :depends-on ("puri" "cffi" "http2/server/shared")
+  :properties (:cl-repo (:ci (:with ("mgl-pax" "dref" "autoload"))))
   :components ((:file "../tls/server")
                (:file "threaded")))
 
