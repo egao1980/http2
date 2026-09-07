@@ -11,8 +11,10 @@ jobs:
     uses: egao1980/cl-repository/.github/workflows/test-system.yml@main
     with:
       system: http2/client
+      extra-with: mgl-pax dref autoload
 
   server:
     uses: egao1980/cl-repository/.github/workflows/test-system.yml@main
     with:
       system: http2/server/threaded
+      extra-with: mgl-pax dref autoload
