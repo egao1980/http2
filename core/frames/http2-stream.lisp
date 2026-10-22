@@ -19,9 +19,14 @@
    (stream-id        :accessor get-stream-id        :initarg :stream-id
                      :type stream-id)
    (state            :accessor get-state            :initarg :state
-                     :type http2-stream-state))
+                     :type http2-stream-state)
+   (refused-limit    :accessor get-refused-limit    :initarg :refused-limit
+                     :documentation
+                     "Our SETTINGS_MAX_CONCURRENT_STREAMS when the peer opened this stream above
+it, else NIL. The stream is refused once its header block is decoded."))
   (:default-initargs :window-size 0
-                     :state 'idle)
+                     :state 'idle
+                     :refused-limit nil)
   (:documentation
    "Part of representation of HTTP/2 stream needed to read and write frames."))
 
@@ -124,16 +129,28 @@ passed to the make-instance"
     (connection-error 'new-stream-id-too-low connection
                       :stream-id stream-id
                       :max-seen-so-far (get-last-id-seen connection)))
-  ;; todo: count and check open streams
   (setf (get-last-id-seen connection) stream-id)
-  (push (make-instance (get-stream-class connection)
-                       :stream-id stream-id
-                       :state state
-                       :window-size (get-initial-window-size connection)
-                       :peer-window-size (get-initial-peer-window-size connection)
-                       :connection connection)
-        (get-streams connection))
+  (let ((limit (and (typep connection 'http2-connection)
+                    (get-max-concurrent-streams connection))))
+    (push (make-instance (get-stream-class connection)
+                         :stream-id stream-id
+                         :state state
+                         :window-size (get-initial-window-size connection)
+                         :peer-window-size (get-initial-peer-window-size connection)
+                         :connection connection
+                         :refused-limit (and limit
+                                             (>= (count-active-peer-streams connection) limit)
+                                             limit))
+          (get-streams connection)))
   (car (get-streams connection)))
+
+(defun count-active-peer-streams (connection)
+  "Streams the peer initiated that count against our SETTINGS_MAX_CONCURRENT_STREAMS
+(RFC 9113 §5.1.2: open and half-closed)."
+  (count-if (lambda (s)
+              (and (not (is-our-stream-id connection (get-stream-id s)))
+                   (member (get-state s) '(open half-closed/local half-closed/remote))))
+            (get-streams connection)))
 
 ;;;; change state
 (defun change-state-on-write-end (http-stream)

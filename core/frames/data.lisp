@@ -223,12 +223,16 @@ the stream or connection, and possibly calls WINDOW-SIZE-INCREMENT-CALLBACK.")
   (:method ((object (eql :closed)) increment))
   (:method ((object flow-control-mixin) increment)
     (with-slots (window-size-increment-callback peer-window-size) object
-      (incf peer-window-size increment)
-      ;; FIXME: If a sender receives a WINDOW_UPDATE that causes a flow-control window
+      ;; If a sender receives a WINDOW_UPDATE that causes a flow-control window
       ;; to exceed this maximum, it MUST terminate either the stream or the
       ;; connection, as appropriate. For streams, the sender sends a RST_STREAM
       ;; with an error code of FLOW_CONTROL_ERROR; for the connection, a GOAWAY
       ;; frame with an error code of FLOW_CONTROL_ERROR is sent.
+      (when (> (+ peer-window-size increment) +max-window-size+)
+        (if (typep object 'http2-connection)
+            (connection-error 'window-overflow object :increment increment)
+            (http-stream-error 'stream-window-overflow object :increment increment)))
+      (incf peer-window-size increment)
       (when window-size-increment-callback
         (continue-long-write object window-size-increment-callback (get-max-peer-frame-size (get-connection object))))))
 #+nil

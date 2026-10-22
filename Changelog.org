@@ -17,6 +17,23 @@
 - Actually handle stopping in threaded dispatcher thread,
 - Possibly stop the clients of threaded dispatcher
 
+* Changes in 2.1.2
+
+RFC 9113 conformance fixes, found by replaying model-based traces
+([[https://github.com/egao1980/http2-spec][egao1980/http2-spec]]) against an in-process client/server pair.
+
+- SETTINGS frames are parsed at any offset in the input buffer (the reader asserted offset 0).
+- SETTINGS_INITIAL_WINDOW_SIZE changes adjust the send window of open, half-closed (remote) and
+  reserved (local) streams (§6.9.2); values above 2^31-1 are FLOW_CONTROL_ERROR (§6.5.2).
+- WINDOW_UPDATE past 2^31-1 is a connection (WINDOW-OVERFLOW) or stream (STREAM-WINDOW-OVERFLOW)
+  FLOW_CONTROL_ERROR (§6.9.1). WINDOW-SIZE is now (SIGNED-BYTE 32); see +MAX-WINDOW-SIZE+.
+- A received PUSH_PROMISE is a connection PROTOCOL_ERROR (PUSH-PROMISE-REFUSED, §8.4) instead of a
+  Lisp error.
+- New connection slots MAX-CONCURRENT-STREAMS (announced in SETTINGS when non-NIL; streams the peer
+  opens above it are reset with REFUSED_STREAM after their header block is decoded, §5.1.2) and
+  PEER-MAX-CONCURRENT-STREAMS (the peer's announced limit).
+- A stream error on a single-frame request no longer calls HTTP2/SERVER's LOG-CLOSED-STREAM from core.
+
 * Changes in 2.1
 
 There might be some incompatible changes.
