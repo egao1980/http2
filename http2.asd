@@ -1,6 +1,7 @@
 ;;;; http2.asd
 
 (defsystem "http2/core"
+  :version "2.1.2"
   :description "HTTP2 protocol implementation"
   :author "Tomáš Zellerin <tomas@zellerin.cz>"
   :license  "MIT"
