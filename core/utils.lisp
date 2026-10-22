@@ -15,6 +15,7 @@
   (vector-from-hex-text function)
   (frame-size type)
   (window-size type)
+  (+max-window-size+ constant)
   (octet-vector type)
 
   (trace-object macro)
@@ -32,8 +33,12 @@ setting can have any value between 2^14 (16,384) and 2^24-1
   '(unsigned-byte 24))
 
 (deftype window-size ()
-  "A sender MUST NOT allow a flow-control window to exceed 2^31-1 octets."
-  '(unsigned-byte 31))
+  "A sender MUST NOT allow a flow-control window to exceed 2^31-1 octets. A change of
+SETTINGS_INITIAL_WINDOW_SIZE can make a window negative (RFC 9113 §6.9.2)."
+  '(signed-byte 32))
+
+(defconstant +max-window-size+ (1- (expt 2 31))
+  "Largest legal flow-control window (RFC 9113 §6.9.1).")
 
 (defun make-octet-buffer (size)
   "

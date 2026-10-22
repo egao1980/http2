@@ -148,8 +148,9 @@ arrives. Does nothing, as priorities are deprecated in RFC9113 anyway."))
   (let ((stream (car (get-streams connection))))
     (handler-case
         (read-and-add-headers data stream start end 5 5)
-      (http-stream-error (e)
-        (log-closed-stream stream e)
+      ;; HTTP-STREAM-ERROR already sent RST_STREAM and closed the stream; LOG-CLOSED-STREAM
+      ;; lives in http2/server, so core cannot call it.
+      (http-stream-error ()
         (values #'parse-frame-header 9)))))
 
 (defun parse-headers-frame  (active-stream flags)
@@ -284,6 +285,9 @@ continuation flags, if any, so must be separate."
       ((and end-headers to-backtrace)
        (connection-error 'incomplete-header connection :octets (subseq data to-backtrace end)))
       (end-headers
+       ;; Refuse only now: the header block had to be decoded to keep HPACK state in sync.
+       (when (get-refused-limit http-stream)
+         (http-stream-error 'refused-stream http-stream :limit (get-refused-limit http-stream)))
        (process-end-headers connection http-stream)
        (maybe-end-stream header-flags http-stream)
        (values #'parse-frame-header 9))

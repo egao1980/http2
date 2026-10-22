@@ -36,13 +36,24 @@ HTTP2/STREAM-OVERLAY:PROCESS-PENDING-FRAMES that reads the input data
 from (Common Lisp) binary STREAM as one example. See @DATA-RECEIVED."
   (server-http2-connection class)
   (client-http2-connection class)
+  (get-max-concurrent-streams generic-function)
+  (get-peer-max-concurrent-streams generic-function)
   (@data section))
 
 (defclass http2-connection (frame-context stream-collection flow-control-mixin hpack-endpoint)
   ((acked-settings           :accessor get-acked-settings           :initarg :acked-settings)
    (initial-window-size      :accessor get-initial-window-size      :initarg :initial-window-size)
    (initial-peer-window-size :accessor get-initial-peer-window-size :initarg :initial-peer-window-size)
-   (peer-max-headers-size    :accessor get-peer-max-headers-size    :initarg :peer-max-headers-size))
+   (peer-max-headers-size    :accessor get-peer-max-headers-size    :initarg :peer-max-headers-size)
+   (max-concurrent-streams   :accessor get-max-concurrent-streams   :initarg :max-concurrent-streams
+                             :documentation
+                             "SETTINGS_MAX_CONCURRENT_STREAMS we announce, or NIL for no limit.
+Streams the peer opens above it are refused (RFC 9113 §5.1.2).")
+   (peer-max-concurrent-streams :accessor get-peer-max-concurrent-streams
+                                :initarg :peer-max-concurrent-streams
+                                :documentation
+                                "SETTINGS_MAX_CONCURRENT_STREAMS announced by the peer, or NIL
+while unlimited. Callers opening streams must stay at or below it."))
   (:default-initargs :id-to-use 1
                      :last-id-seen 0
                      :streams nil
@@ -54,7 +65,9 @@ from (Common Lisp) binary STREAM as one example. See @DATA-RECEIVED."
                      :initial-peer-window-size 65535
                      :initial-window-size 65535
                      :peer-window-size 65535
-                     :peer-max-headers-size nil)
+                     :peer-max-headers-size nil
+                     :max-concurrent-streams nil
+                     :peer-max-concurrent-streams nil)
 
   (:documentation
    "A simple connection instance reflecting several aspects of the connections:
@@ -349,7 +362,9 @@ multiple threads.")
   (:method append (connection)
     `((:max-frame-size . ,(get-max-peer-frame-size connection))
       (:header-table-size .
-                          ,(get-dynamic-table-size (get-decompression-context connection)))))
+                          ,(get-dynamic-table-size (get-decompression-context connection)))
+      ,@(when (get-max-concurrent-streams connection)
+          `((:max-concurrent-streams . ,(get-max-concurrent-streams connection))))))
   (:method append ((connection client-http2-connection))
     `((:enable-push . 0)))
   (:documentation "Settings of the connection. Used to provide data for initial settings frame when

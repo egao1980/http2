@@ -1,0 +1,45 @@
+;;; cl-repo.lock -- auto-generated, do not edit
+((:system "autoload" :version "0.1.0" :index-digest
+  "sha256:4361d8dc76e6eb09d37dc26d344c6fa6c30196095fd76452a8129241dab3e903"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:0cbb245a54f3c32ad04afe87e340df6eec7587932fc8dd7374b48dbf8d065bf9")
+ (:system "closer-mop" :version "1.0.0" :index-digest
+  "sha256:fc3ba31cf31e7453c89c0d435696f3095faf9682db517a733c6bc2365d8612b1"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:4fbfc98edacdd6a8e9d46a0a7ce722ead5045a0f3623876d83432f589c39a261")
+ (:system "mgl-pax-bootstrap" :version "0.5" :index-digest
+  "sha256:e63ddd6be258ac98fa5300f16f4abe53df79e3609c7cbb5115501cb090b0e595"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:f26dea961cce69513e2755ef4495ffb70a4f0fa56f7a0002a6dec5c038233966")
+ (:system "trivial-indent" :version "1.0.0" :index-digest
+  "sha256:a63f3d912658577fd0acf20e84709766f06e6a70922761a02d0200b65d3d1878"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:0fb663604904480ac8be3ed103ca573fa16fa76e533c4dc5e0eb6fbafe9eab15")
+ (:system "dref" :version "0.5.0" :index-digest
+  "sha256:6e8ed40b01ca2cf236ec3b11957c22632e58e1a61de8e668bfe1d1da200c88af"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:490e483cccf0ed6acd41183e04489b7c92ba5ef1133fde682dbe045fd28f76b0")
+ (:system "named-readtables" :version "0.9" :index-digest
+  "sha256:cd0dc20b3617cd40d23f627e1567a66f71cc5e0cde599ce128d738e9dcbe2145"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:6f9f351fd0461a131e9f9397ceb7eae63d1d439b6ad2aa48a956a731dff1c693")
+ (:system "pythonic-string-reader" :version "1.0.0" :index-digest
+  "sha256:8b32ec0ed547044e0da9b6a462887946be5182efaf29fa6815f80d35561bef79"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:7a8921e75835f3d767f36c211b93aa9be86604b6f9470e9477c302cfd68fe881")
+ (:system "mgl-pax" :version "0.5" :index-digest
+  "sha256:afbbe1cd7f102c8250a0fc299c38229f0d31f4e8b5f10b8061f4a5df4356aba2"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:defa768bbd4d38e5a7abd2091f1e5562c31254919cb2f529193ef5cf0dc4dd8f")
+ (:system "cl-ppcre" :version "2.1.2" :index-digest
+  "sha256:87838d0bb421286e3e8797b5068f45750d1ff9c529af2758b5349731ea55ccdb"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:11d220867317a528712c76324d80c060de8ec1bde52cfadb8b5c6e8911a373bd")
+ (:system "alexandria" :version "1.0.1" :index-digest
+  "sha256:bf8a088cb72d10749fba2ad60f9896e47b2e7dd93a2bd590ff02bf214d04ed09"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:31bc8baf9d023975d68e794b6c61d1ea391421ed82b7b87b4a6cd94a6d49cf9c")
+ (:system "trivial-gray-streams" :version "2.1" :index-digest
+  "sha256:3e24b9712a66f2325b95c553d2da0e975a3646751bb061076e1b3248e22a3534"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:a192ab16eb16bd7177563c78e649c72276f7c029a78a7af36020d364989bd557"))

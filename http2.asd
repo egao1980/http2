@@ -81,7 +81,7 @@
 
 
 (defsystem "http2"
-  :version "2.1.1"
+  :version "2.1.2"
   :depends-on ("http2/client" "http2/server")
   :components ((:file "overview"))
   :description "HTTP/2 library, including a sample client and server.
@@ -116,6 +116,7 @@ Run these patterns against servers."
                (:file "frames")
                (:file "frames/headers")
                (:file "frames/data")
+               (:file "frames/rfc9113")
                (:file "test")))
 
 (defsystem "http2/tcpip"

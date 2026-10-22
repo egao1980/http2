@@ -226,8 +226,23 @@ size (2^24-1 or 16,777,215 octets), inclusive."))
 
 (define-condition incorrect-initial-window-size-value (protocol-error)
   ((value :accessor get-value :initarg :value))
+  ;; RFC 9113 §6.5.2: a value above the maximum is a FLOW_CONTROL_ERROR.
+  (:default-initargs :code +flow-control-error+)
   (:report
    "SETTINGS_INITIAL_WINDOW_SIZE must be below 2^31."))
+
+(define-condition window-overflow (connection-error)
+  ((increment :accessor get-increment :initarg :increment :initform nil))
+  (:default-initargs :code +flow-control-error+)
+  (:report
+   "A WINDOW_UPDATE or SETTINGS_INITIAL_WINDOW_SIZE change would raise the connection
+flow-control window above 2^31-1 (RFC 9113 §6.9.1, §6.9.2)."))
+
+(define-condition push-promise-refused (protocol-error)
+  ()
+  (:report
+   "Received PUSH_PROMISE, but server push is not supported (the client announces
+SETTINGS_ENABLE_PUSH = 0 and a server never accepts pushes; RFC 9113 §8.4)."))
 
 (define-condition bad-stream-state (connection-error)
   ((allowed   :accessor get-allowed   :initarg :allowed)
@@ -358,6 +373,19 @@ Base class for more detailed errors."))
   (:default-initargs :code +protocol-error+)
   (:documentation
    "A receiver MUST treat the receipt of a WINDOW_UPDATE frame with a flow-control window increment of 0 as a stream error."))
+
+(define-condition stream-window-overflow (http-stream-error)
+  ((increment :accessor get-increment :initarg :increment :initform nil))
+  (:default-initargs :code +flow-control-error+)
+  (:documentation
+   "A WINDOW_UPDATE that raises a stream flow-control window above 2^31-1 is a stream
+error FLOW_CONTROL_ERROR (RFC 9113 §6.9.1)."))
+
+(define-condition refused-stream (http-stream-error)
+  ((limit :accessor get-limit :initarg :limit))
+  (:default-initargs :code +refused-stream+)
+  (:documentation
+   "The peer opened a stream above our SETTINGS_MAX_CONCURRENT_STREAMS (RFC 9113 §5.1.2)."))
 
 (define-condition null-connection-window-update (protocol-error)
   ()

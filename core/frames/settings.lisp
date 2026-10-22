@@ -35,10 +35,25 @@ The setting relates to the CONNECTION. NAME is a keyword symbol (see
 
   (:method (connection (name (eql :initial-window-size)) value)
     (declare (type (unsigned-byte 32) value))
-    (if (> value (1- (expt 2 31)))
-        (connection-error 'incorrect-initial-window-size-value connection
-                          :value value)
-        (setf (get-initial-peer-window-size connection) value)))
+    (when (> value +max-window-size+)
+      (connection-error 'incorrect-initial-window-size-value connection
+                        :value value))
+    ;; RFC 9113 §6.9.2: the change adjusts the send window of every stream we may still
+    ;; send on, and a window it pushes above 2^31-1 is a connection FLOW_CONTROL_ERROR.
+    (let ((delta (- value (get-initial-peer-window-size connection)))
+          (adjusted (remove-if-not (lambda (s)
+                                     (member (get-state s) '(open half-closed/remote reserved/local)))
+                                   (get-streams connection))))
+      (when (some (lambda (s) (> (+ (get-peer-window-size s) delta) +max-window-size+)) adjusted)
+        (connection-error 'window-overflow connection :increment delta))
+      (dolist (s adjusted)
+        (incf (get-peer-window-size s) delta))
+      (setf (get-initial-peer-window-size connection) value)
+      (when (plusp delta)
+        (dolist (s adjusted)
+          (let ((callback (get-window-size-increment-callback s)))
+            (when callback
+              (continue-long-write s callback (get-max-peer-frame-size connection))))))))
 
   (:method (connection (name (eql :max-frame-size)) value)
     (if (>= 16777215 value 16384)
@@ -71,8 +86,7 @@ The setting relates to the CONNECTION. NAME is a keyword symbol (see
         (setf (get-peer-accepts-push connection) (plusp value))))
 
   (:method (connection (name (eql :max-concurrent-streams)) value)
-    ;; do something
-    ))
+    (setf (get-peer-max-concurrent-streams connection) value)))
 
 (define-frame-type 4 :settings-frame
     "```
@@ -101,17 +115,18 @@ The setting relates to the CONNECTION. NAME is a keyword symbol (see
       "Parse settings frame. If this is ACK settings frame, invoke PEER-ACKS-SETTINGS
 callback, otherwise invoke SET-PEER-SETTING callback for each setting in the
 recieved order."
-      (assert (zerop start))
+      ;; LENGTH is the end index of the payload in DATA, which need not start at 0
+      ;; (PROCESS-FRAMES passes whole buffers).
       (cond
         ((get-flag flags :ack)
-         (when (plusp length)
+         (when (> length start)
            (error "Ack settings frame must be empty. We should close connection."))
          (peer-acks-settings connection))
         (t
-         (unless (zerop (mod length 6))
+         (unless (zerop (mod (- length start) 6))
            (connection-error 'incorrect-settings-frame-size connection))
          (loop
-           for idx from 0 to (1- length) by 6
+           for idx from start below length by 6
            for identifier = (aref/wide data idx 2)
            and value = (aref/wide data (+ 2 idx) 4)
            for name = (find-setting-by-id identifier)
