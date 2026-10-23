@@ -19,8 +19,7 @@
   "When there is a `Content-Encoding: gzip` header, decompress the data and call next
 APPLY-DATA-FRAME methods."
   ;; 20240607 TODO: Window update should go elsewhere
-  (write-window-update-frame (get-connection stream) (- end start))
-  (write-window-update-frame stream (- end start))
+  (send-read-window-update (get-connection stream) stream (- end start))
   (if (get-dstate stream)
       (let* ((buffer (make-array *zip-buffer-size* :element-type '(unsigned-byte 8))))
         (loop

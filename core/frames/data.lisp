@@ -255,6 +255,16 @@ Do not check whether write is possible."
   (decf (get-peer-window-size connection) length)
   (decf (get-peer-window-size stream) length))
 
+(defun send-read-window-update (connection stream octets)
+  "Credit OCTETS of consumed DATA back to the peer, on the connection and the stream.
+
+An empty DATA frame consumes nothing (gRPC half-closes with one). RFC 9113 §6.9:
+a WINDOW_UPDATE whose increment is 0 is a PROTOCOL_ERROR, and on stream 0 that
+is a connection error. Send nothing unless the window actually grew."
+  (when (plusp octets)
+    (write-window-update-frame connection octets)
+    (write-window-update-frame stream octets)))
+
 (defsection @data (:title "Data and flow control")
   "HTTP streams can receive some data (content, body). We can treat in
 several ways:
@@ -403,14 +413,17 @@ frame from START to END.")
     (warn 'no-payload-action :class stream))
 
   (:method ((stream body-collecting-mixin) data start end)
-    "Concatenate received data to the BODY slot of the object."
+    "Concatenate received data to the BODY slot of the object.
+
+Credit the unpadded octets actually consumed. (LENGTH DATA) is the whole
+buffer, which is larger than this slice when several frames share it, and is
+0 for an empty DATA frame — a WINDOW_UPDATE of 0 is illegal (§6.9)."
     (setf (get-body stream)
           (concatenate '(vector (unsigned-byte 8))
                        (get-body stream)
-                       (subseq data start end) ))
+                       (subseq data start end)))
     (with-slots (connection) stream
-      (write-window-update-frame connection (length data))
-      (write-window-update-frame stream (length data)))))
+      (send-read-window-update connection stream (- end start)))))
 
 (defmethod apply-text-data-frame ((stream text-collecting-stream) text)
   (push text (get-text stream)))
