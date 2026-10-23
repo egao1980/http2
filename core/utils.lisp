@@ -352,11 +352,21 @@ cli."
       (terpri)
       (values key-file cert-file))))
 
-(defmethod initialize-instance :after ((object easy-certificated-context-mixin) &key hostname)
-  (when hostname
-    (with-slots (private-key-file certificate-file) object
-      (setf private-key-file (namestring (find-private-key-file hostname))
-            certificate-file (namestring (find-certificate-file private-key-file))))))
+(defmethod initialize-instance :after ((object easy-certificated-context-mixin)
+                                      &key hostname
+                                           (certificate-file nil certificate-file-p)
+                                           (private-key-file nil private-key-file-p))
+  "Fill CERTIFICATE-FILE and PRIVATE-KEY-FILE from HOSTNAME only when neither was given.
+
+Callers that pass both files (gRPC's TLS fixtures) must keep them. The HOSTNAME
+default initarg is \"localhost\", so treating it as a request to generate
+/tmp/localhost.crt would replace an explicit pair and fail clients that trust
+the provided certificate."
+  (unless (or certificate-file-p private-key-file-p)
+    (when hostname
+      (with-slots (private-key-file certificate-file) object
+        (setf private-key-file (namestring (find-private-key-file hostname))
+              certificate-file (namestring (find-certificate-file private-key-file)))))))
 
 (defsection @errs ()
   "There is quite a few error conditions there, but some packages need common

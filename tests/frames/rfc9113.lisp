@@ -181,3 +181,40 @@ connection PROTOCOL_ERROR; grpcio and this library both reject it."
         (pump client server))
       (fiasco:is (null (window-update-increments (get-to-write server))))
       (pump server client))))
+
+(fiasco:deftest literal-pseudo-header-names/test ()
+  "A literal HPACK name \":method\" is the same pseudo-header as the keyword :METHOD.
+
+Indexed static-table names arrive as keywords. A literal name is a string, and
+SERVER-STREAM only records symbols, so a string used to leave METHOD/SCHEME/PATH
+empty and RST the stream."
+  (fiasco:is (eq :method (http2/core::pseudo-header-name ":method")))
+  (fiasco:is (eq :scheme (http2/core::pseudo-header-name ":scheme")))
+  (fiasco:is (eq :path (http2/core::pseudo-header-name ":path")))
+  (fiasco:is (eq :authority (http2/core::pseudo-header-name ":authority")))
+  (fiasco:is (eq :method (http2/core::pseudo-header-name :method)))
+  (fiasco:is (equal "content-type" (http2/core::pseudo-header-name "content-type")))
+  (let* ((connection (make-instance 'pair-server))
+         (stream (make-instance 'server-stream :connection connection)))
+    (dolist (pair '((":method" "POST") (":scheme" "https")
+                    (":path" "/echo.Echo/Ping") (":authority" "localhost:1")))
+      (add-header nil stream (http2/core::pseudo-header-name (first pair)) (second pair)))
+    (process-end-headers nil stream)
+    (fiasco:is (equal "POST" (get-method stream)))
+    (fiasco:is (equal "https" (get-scheme stream)))
+    (fiasco:is (equal "/echo.Echo/Ping" (get-path stream)))))
+
+(fiasco:deftest explicit-tls-files-are-kept/test ()
+  "A dispatcher must not replace certificate and key paths the caller passed.
+
+EASY-CERTIFICATED-CONTEXT-MIXIN defaults HOSTNAME to localhost and used to
+overwrite the slots with /tmp/localhost.* even when both files were initargs.
+grpcio then rejects the generated certificate."
+  (let ((dispatcher (make-instance 'http2/core::easy-certificated-context-mixin
+                                   :certificate-file "/certs/explicit.pem"
+                                   :private-key-file "/certs/explicit.key"
+                                   :hostname "localhost")))
+    (fiasco:is (equal "/certs/explicit.pem"
+                      (slot-value dispatcher 'http2/core::certificate-file)))
+    (fiasco:is (equal "/certs/explicit.key"
+                      (slot-value dispatcher 'http2/core::private-key-file)))))

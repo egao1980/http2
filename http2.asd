@@ -1,7 +1,7 @@
 ;;;; http2.asd
 
 (defsystem "http2/core"
-  :version "2.1.3"
+  :version "2.1.4"
   :description "HTTP2 protocol implementation"
   :author "Tomáš Zellerin <tomas@zellerin.cz>"
   :license  "MIT"
@@ -82,7 +82,7 @@
 
 
 (defsystem "http2"
-  :version "2.1.3"
+  :version "2.1.4"
   :depends-on ("http2/client" "http2/server")
   :components ((:file "overview"))
   :description "HTTP/2 library, including a sample client and server.
