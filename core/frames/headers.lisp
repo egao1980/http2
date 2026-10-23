@@ -254,6 +254,18 @@ At the beginning, invoke APPLY-STREAM-PRIORITY if priority was present."
                        (replace buffer headers :start1 start)))
                  headers priority)))
 
+(defun pseudo-header-name (name)
+  "NAME as SERVER-STREAM expects it.
+
+Indexed HPACK names are already keywords. A literal header field name is a
+string; a pseudo-header is then \":method\" rather than :METHOD. Regular
+fields stay strings."
+  (if (and (stringp name)
+           (> (length name) 1)
+           (char= (char name 0) #\:))
+      (intern (string-upcase (subseq name 1)) :keyword)
+      name))
+
 (defun read-and-add-headers (data http-stream start end flags header-flags)
   "Read http headers from payload in DATA, starting at START.
 
@@ -279,7 +291,12 @@ continuation flags, if any, so must be separate."
                                      (http-stream-error 'lowercase-header-field-name
                                                         http-stream
                                                         :name name :value value))
-                                   (add-header connection http-stream name value))
+                                   ;; HPACK static-table hits arrive as keywords (:method).
+                                   ;; A literal name is a string. ":method" must still be the
+                                   ;; pseudo-header; leaving it a string skips SERVER-STREAM's
+                                   ;; symbol method and the request is missing its pseudos.
+                                   (add-header connection http-stream
+                                               (pseudo-header-name name) value))
                (get-decompression-context connection) data start end))))
     (cond
       ((and end-headers to-backtrace)

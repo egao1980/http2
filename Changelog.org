@@ -17,6 +17,18 @@
 - Actually handle stopping in threaded dispatcher thread,
 - Possibly stop the clients of threaded dispatcher
 
+* Changes in 2.1.4
+
+- Keep CERTIFICATE-FILE and PRIVATE-KEY-FILE when they are passed to a TLS
+  dispatcher. The hostname default ("localhost") was replacing them with a
+  generated /tmp/localhost pair, so a gRPC client that trusts the configured
+  certificate failed the handshake.
+- Treat a literal HPACK header name ":method" (and the other pseudo-headers)
+  as the keyword SERVER-STREAM records. Indexed names are already keywords; a
+  literal name is a string and was stored as an ordinary header, so the
+  request failed the pseudo-header check and the following DATA frame hit a
+  closed stream.
+
 * Changes in 2.1.3
 
 - Do not send a WINDOW_UPDATE with increment 0. An empty DATA frame (gRPC
