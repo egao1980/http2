@@ -126,3 +126,58 @@
     (pump client server)
     (fiasco:is (equal '((3 5 #.http2/core::+refused-stream+)) (frame-types (take-octets server)))
                "a refused header block still updates HPACK state")))
+
+(defclass window-collecting-stream (server-stream body-collecting-mixin) ()
+  (:documentation "Server stream that credits consumed DATA, as grpc-http2-stream does."))
+
+(defclass gzip-window-stream (server-stream header-collecting-mixin gzip-decoding-mixin) ()
+  (:documentation "Server stream whose only WINDOW_UPDATE comes from the gzip mixin.
+
+SERVER-STREAM comes first so its ADD-HEADER method records the pseudo-headers.
+HEADER-COLLECTING-MIXIN is only here so the gzip mixin can call GET-HEADERS."))
+
+(defun window-update-increments (octets)
+  "31-bit increments of WINDOW_UPDATE frames (type 8) in OCTETS."
+  (let ((octets (coerce octets '(simple-array (unsigned-byte 8) (*)))))
+    (loop with start = 0
+          while (< start (length octets))
+          for len = (aref/wide octets start 3)
+          for type = (aref octets (+ start 3))
+          when (= type 8)
+            collect (ldb (byte 31 0) (aref/wide octets (+ start 9) 4))
+          do (incf start (+ 9 len)))))
+
+(fiasco:deftest empty-data-omits-zero-window-update/test ()
+  "§6.9: an empty DATA frame consumes no window, so the receiver must not send WINDOW_UPDATE 0.
+
+gRPC half-closes with an empty DATA + END_STREAM. Increment 0 on stream 0 is a
+connection PROTOCOL_ERROR; grpcio and this library both reject it."
+  (multiple-value-bind (client server)
+      (make-pair :stream-class 'window-collecting-stream)
+    (let ((stream (open-request client)))
+      (pump client server)
+      (write-data-frame stream (make-octet-buffer 0) :end-stream t)
+      (pump client server)
+      (fiasco:is (null (window-update-increments (get-to-write server))))
+      (pump server client)
+      (fiasco:is (= 65535 (http2/core::get-window-size server)))
+      (fiasco:is (= 65535 (get-peer-window-size client)))))
+  (multiple-value-bind (client server)
+      (make-pair :stream-class 'window-collecting-stream)
+    (let ((stream (open-request client)))
+      (pump client server)
+      (write-data-frame stream (make-initialized-octet-buffer #(1 2 3)) :end-stream t)
+      (pump client server)
+      (fiasco:is (equal '(3 3) (window-update-increments (get-to-write server))))
+      (pump server client)
+      (fiasco:is (= 65535 (get-peer-window-size client)))
+      (fiasco:is (= 65535 (get-peer-window-size stream)))))
+  (multiple-value-bind (client server)
+      (make-pair :stream-class 'gzip-window-stream)
+    (let ((stream (open-request client)))
+      (pump client server)
+      (handler-bind ((warning #'muffle-warning))
+        (write-data-frame stream (make-octet-buffer 0) :end-stream t)
+        (pump client server))
+      (fiasco:is (null (window-update-increments (get-to-write server))))
+      (pump server client))))

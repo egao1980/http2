@@ -208,8 +208,11 @@ It keeps data from last data frame in BUFFER, starting with INDEX."))
                        (prog1 (aref buffer index)
                          (when (= (incf index) (length (caar data)))
                            (pop-frame data)
-                           (write-window-update-frame connection index)
-                           (write-window-update-frame base-http2-stream index)
+                           ;; INDEX is the buffer just consumed. 0 would be a
+                           ;; §6.9 connection PROTOCOL_ERROR.
+                           (when (plusp index)
+                             (write-window-update-frame connection index)
+                             (write-window-update-frame base-http2-stream index))
                            (setf index 0))))))))))
 
 (defmethod close ((stream payload-input-stream) &key &allow-other-keys)
