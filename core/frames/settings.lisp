@@ -26,6 +26,12 @@ The setting relates to the CONNECTION. NAME is a keyword symbol (see
     (warn 'unimplemented-feature :format-control "Peer settings not used - ~a ~a."
                                  :format-arguments (list name value)))
 
+  (:method (connection (name string) value)
+    "RFC 9113 §6.5.2: a setting with an unknown identifier (FIND-SETTING-BY-ID names
+it \"ID#n\") MUST be ignored. Servers send them on purpose (GREASE, RFC 8701; GHCR
+sends 0x4876), so ignore it quietly."
+    (declare (ignore connection name value)))
+
   (:method (connection (name (eql :header-table-size)) value)
     (declare (type (unsigned-byte 32) value))
     (let ((context (get-decompression-context connection)))

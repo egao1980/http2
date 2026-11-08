@@ -18,3 +18,11 @@ jobs:
     with:
       system: http2/server/threaded
       extra-with: mgl-pax dref autoload
+
+  suite:
+    # The fiasco suite (http2/test, through http2's test-op). The jobs above
+    # only load systems that have no test-op.
+    uses: egao1980/cl-repository/.github/workflows/test-system.yml@main
+    with:
+      system: http2
+      extra-with: mgl-pax dref autoload

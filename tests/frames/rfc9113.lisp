@@ -57,6 +57,20 @@
     (fiasco:is (= 1000 (http2/core::get-initial-peer-window-size server)))
     (fiasco:is (= 20000 (get-max-peer-frame-size server)))))
 
+(fiasco:deftest unknown-setting-is-ignored/test ()
+  "§6.5.2: an unknown SETTINGS identifier (GHCR sends 0x4876) is ignored without a
+warning, and the frame is still acknowledged."
+  (multiple-value-bind (client server) (make-pair)
+    (declare (ignore server))
+    (let ((frame (make-array 15 :element-type '(unsigned-byte 8)
+                                :initial-contents '(0 0 6 4 0 0 0 0 0 #x48 #x76 0 0 0 1)))
+          (warnings '()))
+      (handler-bind ((warning (lambda (w) (push w warnings) (muffle-warning w))))
+        (process-frames client frame))
+      (fiasco:is (null warnings))
+      ;; the ACK: a 0-length SETTINGS frame with flag 1
+      (fiasco:is (equalp #(0 0 0 4 1 0 0 0 0) (take-octets client))))))
+
 (fiasco:deftest initial-window-size-adjusts-streams/test ()
   "§6.9.2: a SETTINGS_INITIAL_WINDOW_SIZE change applies its delta to open streams."
   (multiple-value-bind (client server) (make-pair)

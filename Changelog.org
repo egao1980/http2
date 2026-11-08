@@ -17,6 +17,14 @@
 - Actually handle stopping in threaded dispatcher thread,
 - Possibly stop the clients of threaded dispatcher
 
+* Changes in 2.1.5
+- SETTINGS with an unknown identifier are ignored without a warning (RFC 9113
+  §6.5.2). GHCR sends 0x4876, so every connection to it warned "Peer settings
+  not used".
+- http2/server/poll no longer depends on let-over-lambda (unused; it pulled in
+  fare-quasiquote and trivia).
+- The test-op fails when a fiasco test fails; CI runs the suite.
+
 * Changes in 2.1.4
 
 - Keep CERTIFICATE-FILE and PRIVATE-KEY-FILE when they are passed to a TLS
