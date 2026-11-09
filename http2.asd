@@ -1,7 +1,7 @@
 ;;;; http2.asd
 
 (defsystem "http2/core"
-  :version "2.1.4"
+  :version "2.1.5"
   :description "HTTP2 protocol implementation"
   :author "Tomáš Zellerin <tomas@zellerin.cz>"
   :license  "MIT"
@@ -82,7 +82,7 @@
 
 
 (defsystem "http2"
-  :version "2.1.4"
+  :version "2.1.5"
   :depends-on ("http2/client" "http2/server")
   :components ((:file "overview"))
   :description "HTTP/2 library, including a sample client and server.
@@ -101,8 +101,10 @@ Run these patterns against servers."
 (defsystem "http2/test"
   :depends-on ("http2" "http2/server/poll" "fiasco")
   :pathname "tests"
+  ;; RUN-PACKAGE-TESTS returns NIL when a test failed; signal so test-op (and CI) fails.
   :perform (test-op (o s)
-                    (symbol-call :fiasco '#:run-package-tests :package '#:http2/tests))
+                    (unless (symbol-call :fiasco '#:run-package-tests :package '#:http2/tests)
+                      (error "http2 tests failed")))
   :components ((:file "support")
                (:file "tests")
                (:file "tcpip")
@@ -139,7 +141,7 @@ Run these patterns against servers."
   :description "Asyncronous polling implementations of HTTP2 server."
   :author "Tomáš Zellerin <tomas@zellerin.cz>"
   :serial t
-  :depends-on ("mgl-pax" "puri" "http2/server/shared" "http2/openssl" "let-over-lambda")
+  :depends-on ("mgl-pax" "puri" "http2/server/shared" "http2/openssl")
   :pathname "server"
   :components ((:file "poll-openssl")
                (:file "poll-server")))
