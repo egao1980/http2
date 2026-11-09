@@ -23,7 +23,9 @@
   not used".
 - http2/server/poll no longer depends on let-over-lambda (unused; it pulled in
   fare-quasiquote and trivia).
-- The test-op fails when a fiasco test fails; CI runs the suite.
+- The test-op fails when a fiasco test fails. (CI cannot run the suite yet:
+  http2/server/poll and http2/openssl grovel at build time and need a C
+  toolchain the CI images lack.)
 
 * Changes in 2.1.4
 
