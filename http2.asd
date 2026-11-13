@@ -82,7 +82,7 @@
 
 
 (defsystem "http2"
-  :version "2.1.5"
+  :version "2.1.6"
   :depends-on ("http2/client" "http2/server")
   :components ((:file "overview"))
   :description "HTTP/2 library, including a sample client and server.
