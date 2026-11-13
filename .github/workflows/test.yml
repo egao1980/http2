@@ -18,3 +18,16 @@ jobs:
     with:
       system: http2/server/threaded
       extra-with: mgl-pax dref autoload
+
+  # Full fiasco suite (test-op of http2). http2/server/poll groves poll.h and
+  # openssl/ssl.h with cffi-grovel, so it needs cc + OpenSSL headers:
+  # ci-image "" runs Ubuntu on the runner VM (gcc, libssl-dev) instead of the
+  # ci-base container, which has no C compiler. Windows has no poll.h, so the
+  # poll server (and the suite) is POSIX-only.
+  suite:
+    uses: egao1980/cl-repository/.github/workflows/test-system.yml@main
+    with:
+      system: http2/test
+      os-json: '["ubuntu-latest","macos-latest"]'
+      ci-image: ""
+      extra-with: mgl-pax dref autoload

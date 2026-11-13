@@ -1,7 +1,17 @@
 (in-package #:http2/openssl)
 
+;;; Absolute paths first: macOS dlopen does not search Homebrew/MacPorts
+;;; prefixes for a bare leaf name. Prefixes match the probe order in
+;;; openssl-grovel.lisp so the library matches the groveled headers.
 (define-foreign-library openssl
-  #-os-macosx (:unix "libssl.so")
+  (:darwin (:or "/opt/homebrew/opt/openssl@3/lib/libssl.3.dylib"
+                "/usr/local/opt/openssl@3/lib/libssl.3.dylib"
+                "/opt/homebrew/opt/openssl/lib/libssl.3.dylib"
+                "/usr/local/opt/openssl/lib/libssl.3.dylib"
+                "/opt/local/lib/libssl.3.dylib"
+                (:default "libssl.3")))
+  ;; libssl.so is only present with the -dev package; the runtime is .so.3.
+  (:unix (:or "libssl.so.3" "libssl.so"))
   (t (:default "libssl.3")))
 
 (use-foreign-library openssl)

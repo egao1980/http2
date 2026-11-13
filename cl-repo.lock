@@ -1,0 +1,5 @@
+;;; cl-repo.lock -- auto-generated, do not edit
+((:system "fiasco" :version "latest" :index-digest
+  "sha256:879ca541f37985b60e7fda7a8e57195dceccd3315d6d79a16265d452d47478a9"
+  :registry "https://ghcr.io" :source-digest
+  "sha256:9d584fd2b0672eb352b6e7ad3ca6fc83d3571a2676bc50707a9465df470363ed"))
