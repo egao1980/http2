@@ -17,6 +17,18 @@
 - Actually handle stopping in threaded dispatcher thread,
 - Possibly stop the clients of threaded dispatcher
 
+* Changes in 2.1.8
+- A stream error in a header block (upper-case field name, bad pseudo-header,
+  header list over the limit) no longer stops HPACK decoding halfway. The rest
+  of the block, CONTINUATION frames included, is decoded into the dynamic table
+  first and the error is signalled at END_HEADERS, as refused streams already
+  were (RFC 9113 §4.3). Before, the dynamic table fell out of sync with the
+  peer's and later header blocks on the connection failed with
+  DECOMPRESSION-FAILED (egao1980/http-backend-async#51).
+- A header list over *MAX-HEADERS-SIZE* or *MAX-HEADERS-COUNT* is a stream
+  error (RST_STREAM) instead of a GOAWAY: with the block decoded whole, the
+  connection's HPACK state survives it.
+
 * Changes in 2.1.7
 - Header limits a client can live with: *MAX-STRING-SIZE* 4 KiB → 64 KiB and
   *MAX-HEADERS-SIZE* 8 KiB → 64 KiB (nghttp2's defaults). www.cloudflare.com
