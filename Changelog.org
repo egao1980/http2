@@ -17,6 +17,16 @@
 - Actually handle stopping in threaded dispatcher thread,
 - Possibly stop the clients of threaded dispatcher
 
+* Changes in 2.1.7
+- Header limits a client can live with: *MAX-STRING-SIZE* 4 KiB → 64 KiB and
+  *MAX-HEADERS-SIZE* 8 KiB → 64 KiB (nghttp2's defaults). www.cloudflare.com
+  sends a field over 4 KiB at times; the decoder refused it as
+  DECOMPRESSION-FAILED and the connection died.
+- The header size and count limits apply per header list (RFC 9113 §6.5.2):
+  they reset after each header block, so 103 Early Hints, the final response
+  and trailers do not add up. CURRENT-HEADER-COUNT starts at 0 (it was unbound,
+  so *MAX-HEADERS-COUNT* failed on the first header).
+
 * Changes in 2.1.5
 - SETTINGS with an unknown identifier are ignored without a warning (RFC 9113
   §6.5.2). GHCR sends 0x4876, so every connection to it warned "Peer settings

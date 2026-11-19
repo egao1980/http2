@@ -9,10 +9,13 @@
   (header-collecting-mixin class)
   (get-headers (method nil header-collecting-mixin)))
 
-(defvar *max-headers-size* 8192
-  "Maximum allowed size for received headers per stream. Calculated as per RFC. NIL
-is unlimited and not recommended in live environments. It is announced in
-SETTINGS frame.")
+(defvar *max-headers-size* 65536
+  "Maximum allowed size for a received header list (one header block). Calculated as
+per RFC. NIL is unlimited and not recommended in live environments. It is announced
+in SETTINGS frame by a server.
+
+64 KiB, as nghttp2's default header list limit; 8 KiB refused responses that
+browsers accept.")
 (defvar *max-headers-count* nil
   "Maximum number of headers per stream. NIL is unlimited.")
 
@@ -27,7 +30,7 @@ SETTINGS frame.")
                          :documentation "List of collected (header . value) pairs. Does not include `:method`, `:path`, etc.")
    (current-header-size  :accessor get-current-header-size  :initarg :current-header-size)
    (current-header-count :accessor get-current-header-count :initarg :current-header-count))
-  (:default-initargs :headers nil :current-header-size 0)
+  (:default-initargs :headers nil :current-header-size 0 :current-header-count 0)
   (:documentation
    "Collects all observed headers (except pseudo-headers)."))
 
@@ -87,6 +90,12 @@ SETTINGS frame.")
   (:method :after (connection stream)
     ;; next header section may contain another :status
     (setf (get-seen-text-header stream) nil))
+
+  (:method :after (connection (stream header-collecting-mixin))
+    ;; The size limit is per header list (RFC 9113 §6.5.2): an informational
+    ;; response (103 Early Hints), the final one and trailers each get it whole.
+    (setf (get-current-header-size stream) 0
+          (get-current-header-count stream) 0))
 
   (:method (connection (stream server-stream))
     ;; Headers sanity check
