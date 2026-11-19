@@ -110,3 +110,25 @@ SPLITS sets where the data are split.
       (let ((bad-header (http2/hpack::compile-headers '(("Foo" "bar")) nil)))
         (http2/core::read-and-add-headers bad-header
                                           dummy 0 (length bad-header) 0 0)))))
+
+(deftest long-header-value ()
+  "A field longer than 4 KiB decodes: www.cloudflare.com sends one at times, and a
+field the decoder refuses breaks the connection's HPACK state."
+  (http2/tests/support:with-dummy-stream (dummy)
+    (let* ((value (make-string 5000 :initial-element #\a))
+           (block (http2/hpack::compile-headers `(("link" ,value)) nil)))
+      (http2/core::read-and-add-headers block dummy 0 (length block) 4 0)
+      (is (equal value (cdr (assoc "link" (http2/core::get-headers dummy)
+                                   :test #'equal)))))))
+
+(deftest header-size-limit-is-per-header-block ()
+  "103 Early Hints, the final response and trailers are separate header lists
+(RFC 9113 §6.5.2): each gets the whole *MAX-HEADERS-SIZE*."
+  (let ((http2/core::*max-headers-size* 300))
+    (http2/tests/support:with-dummy-stream (dummy)
+      (let ((block (http2/hpack::compile-headers
+                    `(("link" ,(make-string 150 :initial-element #\l))) nil)))
+        (http2/core::read-and-add-headers block dummy 0 (length block) 4 0)
+        (http2/core::read-and-add-headers block dummy 0 (length block) 4 0)
+        (is (= 2 (count "link" (http2/core::get-headers dummy)
+                        :key #'car :test #'equal)))))))

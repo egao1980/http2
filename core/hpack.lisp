@@ -415,8 +415,13 @@ Return the fillable vector."
   ;; FIXME: split out http2 utils so that we can have package hierarchy
   (values (decode-huffman data start (+ start len)) (+ start len)))
 
-(defvar *max-string-size* 4096
-  "Maximum size a header string can have. This is to limit possible exhaustion attacks. See [RFC](https://datatracker.ietf.org/doc/html/rfc7541#section-7.4).")
+(defvar *max-string-size* 65536
+  "Maximum size a header string can have. This is to limit possible exhaustion
+attacks. See [RFC](https://datatracker.ietf.org/doc/html/rfc7541#section-7.4).
+
+64 KiB, as nghttp2's header field limit: a peer may legitimately send a field
+longer than 4 KiB (www.cloudflare.com sends such a `link`/CSP field at times),
+and a string that cannot be read breaks the connection's HPACK state.")
 
 (define-condition header-string-too-long (decode-error)
   ((size :accessor get-size :initarg :size)
