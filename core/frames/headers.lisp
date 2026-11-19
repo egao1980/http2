@@ -73,15 +73,15 @@ browsers accept.")
       (when *max-headers-size*
         (incf current-header-size (compute-header-size (list name value)))
         (when (> current-header-size *max-headers-size*)
-          ;; This can be later invoked stream error, but for now play safe and disconnect the offender
+          ;; A stream error: READ-AND-ADD-HEADERS decodes the rest of the block
+          ;; first, so the connection's HPACK state survives.
           (setf headers nil)
-          (connection-error 'too-large-headers connection)))
+          (http-stream-error 'too-large-headers stream)))
       (when *max-headers-count*
         (incf current-header-count)
         (when (> current-header-count *max-headers-count*)
           (setf headers nil)
-          ;; This can be later invoked stream error, but for now play safe and disconnect the offender
-          (connection-error 'too-many-headers connection)))
+          (http-stream-error 'too-many-headers stream)))
       (push (cons name value) headers))))
 
 (defgeneric process-end-headers (connection stream)
@@ -275,7 +275,7 @@ fields stay strings."
       (intern (string-upcase (subseq name 1)) :keyword)
       name))
 
-(defun read-and-add-headers (data http-stream start end flags header-flags)
+(defun read-and-add-headers (data http-stream start end flags header-flags &optional pending-error)
   "Read http headers from payload in DATA, starting at START.
 
 Returns next function to call and size of expected data. If the END-HEADERS was
@@ -283,7 +283,14 @@ present, it would be PARSE-FRAME-HEADER, if not a continuation frame is to be
 read.
 
 Note that END-STREAM is present in the first header flag, not in the
-continuation flags, if any, so must be separate."
+continuation flags, if any, so must be separate.
+
+A stream error found in a header (upper-case name, header list over the limit,
+bad pseudo-header) does not stop decoding: the rest of the block, continuation
+frames included, still goes through the HPACK decoder, so the dynamic table stays
+in sync with the peer's (RFC 9113 §4.3). The first such error is kept in
+PENDING-ERROR, later headers of the block are dropped, and the error is
+signalled once the block ends."
   ;; FIXME: add handler for failure to read full header.
   (let* ((connection (get-connection http-stream))
          (end-headers (get-flag flags :end-headers))
@@ -296,22 +303,31 @@ continuation flags, if any, so must be separate."
                          (unless (typep e 'header-error)
                            (connection-error 'decompression-failed connection :internal-error e)))))
              (do-decoded-headers (lambda (name value)
-                                   (when (and (stringp name) (some 'upper-case-p name))
-                                     (http-stream-error 'lowercase-header-field-name
-                                                        http-stream
-                                                        :name name :value value))
-                                   ;; HPACK static-table hits arrive as keywords (:method).
-                                   ;; A literal name is a string. ":method" must still be the
-                                   ;; pseudo-header; leaving it a string skips SERVER-STREAM's
-                                   ;; symbol method and the request is missing its pseudos.
-                                   (add-header connection http-stream
-                                               (pseudo-header-name name) value))
+                                   (unless pending-error
+                                     ;; HTTP-STREAM-ERROR has sent RST_STREAM and closed the stream. Keep
+                                     ;; decoding the block (HPACK state); signal the error at its end.
+                                     (handler-case
+                                         (progn
+                                           (when (and (stringp name) (some 'upper-case-p name))
+                                             (http-stream-error 'lowercase-header-field-name
+                                                                http-stream
+                                                                :name name :value value))
+                                           ;; HPACK static-table hits arrive as keywords (:method).
+                                           ;; A literal name is a string. ":method" must still be the
+                                           ;; pseudo-header; leaving it a string skips SERVER-STREAM's
+                                           ;; symbol method and the request is missing its pseudos.
+                                           (add-header connection http-stream
+                                                       (pseudo-header-name name) value))
+                                       (http-stream-error (e)
+                                         (setf pending-error e)))))
                (get-decompression-context connection) data start end))))
     (cond
       ((and end-headers to-backtrace)
        (connection-error 'incomplete-header connection :octets (subseq data to-backtrace end)))
       (end-headers
        ;; Refuse only now: the header block had to be decoded to keep HPACK state in sync.
+       (when pending-error
+         (error pending-error))
        (when (get-refused-limit http-stream)
          (http-stream-error 'refused-stream http-stream :limit (get-refused-limit http-stream)))
        (process-end-headers connection http-stream)
@@ -321,7 +337,7 @@ continuation flags, if any, so must be separate."
        ;; We read full headers, but we need to read more (continuation frame)
        ;; FIXME: simplify it for this case and write tests for this
        (values (read-continuation-frame-on-demand http-stream data (or to-backtrace end)
-                                                  end header-flags)
+                                                  end header-flags pending-error)
                9)))))
 
 (defun read-priority (data http-stream start)
@@ -406,7 +422,7 @@ expected, and then it is parsed by a different function."
       (declare (ignore data start length))
       (connection-error 'unexpected-continuation-frame connection)))
 
-(defun read-continuation-frame-on-demand (expected-stream old-data old-data-start old-data-end header-flags)
+(defun read-continuation-frame-on-demand (expected-stream old-data old-data-start old-data-end header-flags &optional pending-error)
   ;; this is pretty much copy of READ-FRAME-HEADER, but with a twists
   (values
    (lambda (connection header &optional (start 0) (end (length header)))
@@ -440,10 +456,10 @@ expected, and then it is parsed by a different function."
              ((and (get-flag flags :end-headers) (zerop length))
               ;; empty HEADER-FRAME still can have end-streams or end-headers flag
               (read-and-add-headers old-data  stream-or-connection
-                                   old-data-start old-data-end flags header-flags))
+                                    old-data-start old-data-end flags header-flags pending-error))
              ((zerop length)
               ;; empty continuation header, expect another one
-              (read-continuation-frame-on-demand expected-stream old-data old-data-start old-data-end header-flags))
+              (read-continuation-frame-on-demand expected-stream old-data old-data-start old-data-end header-flags pending-error))
              (t
               (values (lambda (connection data start end)
                         (declare (ignore connection))
@@ -456,6 +472,6 @@ expected, and then it is parsed by a different function."
                           (replace full-data data :start1 (- old-data-end old-data-start)
                                    :start2 start :end2 end)
                           (read-and-add-headers full-data stream-or-connection
-                                                0 (length full-data) flags header-flags)))
+                                                0 (length full-data) flags header-flags pending-error)))
                       length)))))))
    9))
